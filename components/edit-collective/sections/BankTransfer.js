@@ -14,8 +14,10 @@ import PayoutBankInformationForm from '../../expenses/PayoutBankInformationForm'
 import { Box, Flex } from '../../Grid';
 import Loading from '../../Loading';
 import StyledButton from '../../StyledButton';
-import { H3, H4, P } from '../../Text';
+import { P } from '../../Text';
 import UpdateBankDetailsForm from '../UpdateBankDetailsForm';
+
+import SettingsSectionTitle from './SettingsSectionTitle';
 
 const { TW_API_COLLECTIVE_SLUG } = process.env;
 
@@ -36,7 +38,6 @@ const hostQuery = gqlV2/* GraphQL */ `
         addedFundsLimit
         bankTransfers
         bankTransfersLimit
-        hostDashboard
         hostedCollectives
         hostedCollectivesLimit
         manualPayments
@@ -112,9 +113,9 @@ const BankTransfer = props => {
     <Flex className="EditPaymentMethods" flexDirection="column">
       {showEditManualPaymentMethod && (
         <Fragment>
-          <H4 mt={2}>
+          <SettingsSectionTitle>
             <FormattedMessage id="editCollective.receivingMoney.bankTransfers" defaultMessage="Bank Transfers" />
-          </H4>
+          </SettingsSectionTitle>
 
           <Box>
             <Container fontSize="12px" mt={2} color="black.600" textAlign="left">
@@ -193,11 +194,11 @@ const BankTransfer = props => {
         >
           {({ handleSubmit, isSubmitting, setFieldValue, values }) => (
             <form onSubmit={handleSubmit}>
-              <H3>
+              <SettingsSectionTitle>
                 <FormattedMessage id="paymentMethods.manual.HowDoesItWork" defaultMessage="How does it work?" />
-              </H3>
+              </SettingsSectionTitle>
               <Flex flexDirection={['column', 'row']} alignItems={['center', 'start']}>
-                <P>
+                <P mr={2}>
                   <FormattedMessage
                     id="paymentMethod.manual.edit.description"
                     defaultMessage='Contributors will be able to choose "Bank Transfer" as a payment method when they check out. The instructions to make the wire transfer will be emailed to them along with a unique order id. Once you received the money, you will be able to mark the corresponding pending order as paid in your host dashboard.'
@@ -205,17 +206,14 @@ const BankTransfer = props => {
                 </P>
                 <img src="/static/images/ManualPaymentMethod-BankTransfer.png" width={350} />
               </Flex>
-              <H3>
-                <FormattedMessage id="menu.pricing" defaultMessage="Pricing" />
-              </H3>
               {useStructuredForm && (
                 <React.Fragment>
-                  <H3>
+                  <SettingsSectionTitle mt={4}>
                     <FormattedMessage
                       id="paymentMethods.manual.bankInfo.title"
                       defaultMessage="Add your bank account information"
                     />
-                  </H3>
+                  </SettingsSectionTitle>
                   <Flex mr={2} flexDirection="column" width={[1, 0.5]}>
                     <PayoutBankInformationForm
                       host={{ slug: TW_API_COLLECTIVE_SLUG }}
@@ -229,12 +227,12 @@ const BankTransfer = props => {
                 </React.Fragment>
               )}
 
-              <H3 my="1.5rem">
+              <SettingsSectionTitle mt={4}>
                 <FormattedMessage
                   id="paymentMethods.manual.instructions.title"
                   defaultMessage="Define the instructions to make a bank transfer to your account"
                 />
-              </H3>
+              </SettingsSectionTitle>
               <Box mr={2} flexGrow={1}>
                 <UpdateBankDetailsForm
                   value={instructions}

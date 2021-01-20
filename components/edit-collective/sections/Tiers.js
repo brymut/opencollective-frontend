@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { Mutation } from '@apollo/client/react/components';
 import { getApplicableTaxes } from '@opencollective/taxes';
 import { cloneDeep, get, set } from 'lodash';
-import { Form } from 'react-bootstrap';
 import { defineMessages, FormattedMessage, injectIntl } from 'react-intl';
 import { v4 as uuid } from 'uuid';
 
@@ -22,11 +21,12 @@ import Link from '../../Link';
 import MessageBox from '../../MessageBox';
 import StyledButton from '../../StyledButton';
 import StyledCheckbox from '../../StyledCheckbox';
-import StyledHr from '../../StyledHr';
 import StyledLink from '../../StyledLink';
-import { H3, H4, P, Span } from '../../Text';
+import { P, Span } from '../../Text';
+import SettingsTitle from '../SettingsTitle';
 
 import { editCollectiveSettingsMutation } from './../mutations';
+import SettingsSectionTitle from './SettingsSectionTitle';
 
 const { FUND, PROJECT, EVENT } = CollectiveType;
 const { TIER, TICKET, MEMBERSHIP, SERVICE, PRODUCT, DONATION } = TierTypes;
@@ -370,12 +370,12 @@ class Tiers extends React.Component {
 
     return (
       <Container margin="3rem 0" className={`tier ${tier.slug}`} key={key}>
-        <Container textAlign="right" fontSize="1.3rem">
+        <Container textAlign="right" fontSize="1.3rem" pr={1}>
           <a className="removeTier" href="#" onClick={() => this.removeTier(index)}>
             {intl.formatMessage(this.messages[`${this.defaultType}.remove`])}
           </a>
         </Container>
-        <Form horizontal>
+        <form>
           {this.fields.map(
             field =>
               (!field.when || field.when(defaultValues, collective)) && (
@@ -415,7 +415,7 @@ class Tiers extends React.Component {
                 </Box>
               ),
           )}
-        </Form>
+        </form>
       </Container>
     );
   }
@@ -427,13 +427,12 @@ class Tiers extends React.Component {
 
     return (
       <div className="EditTiers">
-        <H3>{this.props.title}</H3>
-        <StyledHr my={4} borderColor="black.200" />
+        <SettingsTitle mb={50}>{this.props.title}</SettingsTitle>
         {displayCustomContributionsSettings && (
           <React.Fragment>
-            <H4 mb={3}>
+            <SettingsSectionTitle>
               <FormattedMessage id="ContributionType.Custom" defaultMessage="Custom contribution" />
-            </H4>
+            </SettingsSectionTitle>
             <Mutation mutation={editCollectiveSettingsMutation}>
               {(editSettings, { loading }) => (
                 <Flex flexWrap="wrap">
@@ -467,10 +466,9 @@ class Tiers extends React.Component {
                 </Flex>
               )}
             </Mutation>
-            <StyledHr my={4} borderColor="black.200" />
-            <H4 mb={3}>
+            <SettingsSectionTitle mt={50}>
               <FormattedMessage id="createCustomTiers" defaultMessage="Create custom tiers" />
-            </H4>
+            </SettingsSectionTitle>
           </React.Fragment>
         )}
 

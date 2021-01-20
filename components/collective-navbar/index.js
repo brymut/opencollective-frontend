@@ -14,7 +14,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import styled, { css } from 'styled-components';
 import { maxWidth } from 'styled-system';
 
-import { getFilteredSectionsForCollective, NAVBAR_CATEGORIES } from '../../lib/collective-sections';
+import { getFilteredSectionsForCollective, hasNewNavbar, NAVBAR_CATEGORIES } from '../../lib/collective-sections';
 import { CollectiveType } from '../../lib/constants/collectives';
 import useGlobalBlur from '../../lib/hooks/useGlobalBlur';
 import i18nCollectivePageSection from '../../lib/i18n-collective-page-section';
@@ -61,21 +61,20 @@ const AvatarBox = styled(Box)`
 `;
 
 const InfosContainerV2 = styled(Container)`
-  width: 1;
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(0);
-  transition: opacity 0.075s ease-out, transform 0.1s ease-out, visibility 0.075s ease-out, width 0.1s ease-in-out;
+  [data-hide='false'] {
+    width: 1;
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+    transition: opacity 0.075s ease-out, transform 0.1s ease-out, visibility 0.075s ease-out, width 0.1s ease-in-out;
+  }
 
-  /** Hidden state */
-  ${props =>
-    props.isHidden &&
-    css`
-      width: 0;
-      visibility: hidden;
-      opacity: 0;
-      transform: translateX(-20px);
-    `}
+  [data-hide='true'] {
+    width: 0;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateX(-20px);
+  }
 `;
 
 const CollectiveNameV2 = styled(H1)`
@@ -301,7 +300,7 @@ const getDefaultCallsToActions = (collective, isAdmin, newNavbarFeatureFlag) => 
       hasContact: isFeatureAvailable(collective, 'CONTACT_FORM'),
       hasApply: isFeatureAvailable(collective, 'RECEIVE_HOST_APPLICATIONS'),
       hasSubmitExpense: isFeatureAvailable(collective, 'RECEIVE_EXPENSES'),
-      hasManageSubscriptions: isAdmin && isFeatureAvailable(collective, 'RECURRING_CONTRIBUTIONS'),
+      hasManageSubscriptions: isAdmin && get(collective.features, 'RECURRING_CONTRIBUTIONS') === 'ACTIVE',
       hasDashboard: isAdmin && isFeatureAvailable(collective, 'HOST_DASHBOARD'),
     };
   }
@@ -329,7 +328,7 @@ const getMainAction = (collective, isAdmin, callsToAction) => {
       type: NAVBAR_ACTION_TYPE.DASHBOARD,
       component: (
         <Link route="host.dashboard" params={{ hostCollectiveSlug: collective.slug }}>
-          <MainActionBtn>
+          <MainActionBtn tabIndex="-1">
             <Dashboard size="1em" />
             <Span ml={2}>
               <FormattedMessage id="host.dashboard" defaultMessage="Dashboard" />
@@ -343,7 +342,7 @@ const getMainAction = (collective, isAdmin, callsToAction) => {
       type: NAVBAR_ACTION_TYPE.CONTRIBUTE,
       component: (
         <Link {...getContributeRoute(collective)}>
-          <MainActionBtn>
+          <MainActionBtn tabIndex="-1">
             <Planet size="1em" />
             <Span ml={2}>
               <FormattedMessage id="menu.contributeMoney" defaultMessage="Contribute Money" />
@@ -353,13 +352,14 @@ const getMainAction = (collective, isAdmin, callsToAction) => {
       ),
     };
   } else if (!isAdmin && callsToAction.hasApply) {
+    const plan = collective.plan || {};
     return {
       type: NAVBAR_ACTION_TYPE.APPLY,
       component: (
         <ApplyToHostBtn
           hostSlug={collective.slug}
           buttonRenderer={props => <MainActionBtn {...props} />}
-          hostWithinLimit={false} // TODO
+          hostWithinLimit={!plan.hostedCollectivesLimit || plan.hostedCollectives < plan.hostedCollectivesLimit}
         />
       ),
     };
@@ -368,7 +368,7 @@ const getMainAction = (collective, isAdmin, callsToAction) => {
       type: NAVBAR_ACTION_TYPE.SUBMIT_EXPENSE,
       component: (
         <Link route="create-expense" params={{ collectiveSlug: collective.slug }}>
-          <MainActionBtn>
+          <MainActionBtn tabIndex="-1">
             <Receipt size="1em" />
             <Span ml={2}>
               <FormattedMessage id="ExpenseForm.Submit" defaultMessage="Submit expense" />
@@ -382,7 +382,7 @@ const getMainAction = (collective, isAdmin, callsToAction) => {
       type: NAVBAR_ACTION_TYPE.MANAGE_SUBSCRIPTIONS,
       component: (
         <Link route="recurring-contributions" params={{ slug: collective.slug }}>
-          <MainActionBtn>
+          <MainActionBtn tabIndex="-1">
             <Stack size="1em" />
             <Span ml={2}>
               <FormattedMessage id="menu.subscriptions" defaultMessage="Manage Contributions" />
@@ -396,7 +396,7 @@ const getMainAction = (collective, isAdmin, callsToAction) => {
       type: NAVBAR_ACTION_TYPE.CONTACT,
       component: (
         <Link route="host.dashboard" params={{ hostCollectiveSlug: collective.slug }}>
-          <MainActionBtn>
+          <MainActionBtn tabIndex="-1">
             <Dashboard size="20px" />
             <Span ml={2}>
               <FormattedMessage id="host.dashboard" defaultMessage="Dashboard" />
@@ -450,7 +450,7 @@ const CollectiveNavbar = ({
   callsToAction,
   onCollectiveClick,
   onSectionClick,
-  hideInfos,
+  hideInfosOnDesktop,
   onlyInfos,
   isAnimated,
   showBackButton,
@@ -458,7 +458,7 @@ const CollectiveNavbar = ({
   useAnchorsForCategories,
 }) => {
   const router = useRouter();
-  const newNavbarFeatureFlag = get(router, 'query.navbarVersion') === 'v2';
+  const newNavbarFeatureFlag = hasNewNavbar(get(router, 'query.navbarVersion'));
   const intl = useIntl();
   const [isExpanded, setExpanded] = React.useState(false);
   sections = sections || getFilteredSectionsForCollective(collective, isAdmin, null, newNavbarFeatureFlag);
@@ -486,47 +486,45 @@ const CollectiveNavbar = ({
       maxHeight="100vh"
     >
       {/** Collective info */}
-      <InfosContainerV2
-        isHidden={hideInfos}
-        isAnimated={isAnimated}
-        mr={[0, 2]}
-        display="flex"
-        alignItems="center"
-        px={[3, 0]}
-        py={[2, 1]}
-      >
-        {showBackButton && (
-          <Box display={['none', 'block']} mr={2}>
-            <StyledButton px={1} isBorderless onClick={() => window && window.history.back()}>
-              &larr;
-            </StyledButton>
+      <InfosContainerV2 isAnimated={isAnimated} mr={[0, 2]} display="flex" alignItems="center" px={[3, 0]} py={[2, 1]}>
+        <Flex alignItems="center" data-hide={hideInfosOnDesktop}>
+          {showBackButton && (
+            <Box display={['none', 'block']} mr={2}>
+              {collective && (
+                <Link route="collective" params={{ slug: collective.slug }}>
+                  <StyledButton px={1} isBorderless>
+                    &larr;
+                  </StyledButton>
+                </Link>
+              )}
+            </Box>
+          )}
+          <AvatarBox>
+            <LinkCollective collective={collective} onClick={onCollectiveClick}>
+              <Container borderRadius="25%" mr={2}>
+                <Avatar collective={collective} radius={40} />
+              </Container>
+            </LinkCollective>
+          </AvatarBox>
+          <Box display={['block', null, null, onlyInfos ? 'block' : 'none']}>
+            <CollectiveNameV2
+              mx={2}
+              py={2}
+              fontSize={['16px', '20px']}
+              lineHeight={['24px', '28px']}
+              textAlign="center"
+              fontWeight="500"
+              color="black.800"
+              maxWidth={[200, 280, 500]}
+            >
+              {isLoading ? (
+                <LoadingPlaceholder height={14} minWidth={100} />
+              ) : (
+                <LinkCollective collective={collective} onClick={onCollectiveClick} />
+              )}
+            </CollectiveNameV2>
           </Box>
-        )}
-        <AvatarBox>
-          <LinkCollective collective={collective} onClick={onCollectiveClick}>
-            <Container borderRadius="25%" mr={2}>
-              <Avatar collective={collective} radius={40} />
-            </Container>
-          </LinkCollective>
-        </AvatarBox>
-        <Box display={['block', null, null, onlyInfos ? 'block' : 'none']}>
-          <CollectiveNameV2
-            mx={2}
-            py={2}
-            fontSize={['16px', '20px']}
-            lineHeight={['24px', '28px']}
-            textAlign="center"
-            fontWeight="500"
-            color="black.800"
-            maxWidth={[200, 280, 500]}
-          >
-            {isLoading ? (
-              <LoadingPlaceholder height={14} minWidth={100} />
-            ) : (
-              <LinkCollective collective={collective} onClick={onCollectiveClick} />
-            )}
-          </CollectiveNameV2>
-        </Box>
+        </Flex>
         {!onlyInfos && (
           <Box display={['block', 'none']} marginLeft="auto">
             {isExpanded ? (
@@ -607,7 +605,7 @@ const CollectiveNavbar = ({
     // v1
     <MainContainer withShadow={withShadow}>
       {/** Collective infos */}
-      <InfosContainer isHidden={hideInfos} isAnimated={isAnimated}>
+      <InfosContainer isHidden={hideInfosOnDesktop} isAnimated={isAnimated}>
         <Flex alignItems="center" flex="1 1 80%" css={{ minWidth: 0 /** For text-overflow */ }}>
           <LinkCollective collective={collective} onClick={onCollectiveClick}>
             <Container borderRadius="25%" mr={2}>
@@ -692,7 +690,7 @@ const CollectiveNavbar = ({
                   </MenuLink>
                 </MenuLinkContainer>
               )}
-              {callsToAction.hasDashboard && collective.plan.hostDashboard && (
+              {callsToAction.hasDashboard && (
                 <MenuLinkContainer mobileOnly>
                   <MenuLink as={Link} route="host.dashboard" params={{ hostCollectiveSlug: collective.slug }}>
                     <FormattedMessage id="host.dashboard" defaultMessage="Dashboard" />
@@ -762,7 +760,7 @@ CollectiveNavbar.propTypes = {
   selected: PropTypes.oneOf(AllSectionsNames),
   selectedCategory: PropTypes.oneOf(Object.values(NAVBAR_CATEGORIES)),
   /** If true, the collective infos (avatar + name) will be hidden with css `visibility` */
-  hideInfos: PropTypes.bool,
+  hideInfosOnDesktop: PropTypes.bool,
   /** If true, the CTAs will be hidden on mobile */
   hideButtonsOnMobile: PropTypes.bool,
   /** If true, the Navbar items and buttons will be skipped  */
@@ -778,7 +776,7 @@ CollectiveNavbar.propTypes = {
 };
 
 CollectiveNavbar.defaultProps = {
-  hideInfos: false,
+  hideInfosOnDesktop: false,
   isAnimated: false,
   onlyInfos: false,
   callsToAction: {},

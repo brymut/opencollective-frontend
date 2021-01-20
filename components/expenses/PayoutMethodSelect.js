@@ -84,6 +84,7 @@ class PayoutMethodSelect extends React.Component {
     }).isRequired,
     /** The Acccount being paid with the expense */
     payee: PropTypes.shape({
+      id: PropTypes.string,
       type: PropTypes.string,
       host: PropTypes.shape({
         id: PropTypes.string,
@@ -193,28 +194,30 @@ class PayoutMethodSelect extends React.Component {
     title: this.getPayoutMethodTitle(pm),
   });
 
-  getOptions = memoizeOne(payoutMethods => {
+  getOptions = memoizeOne((payoutMethods, payee) => {
     const groupedPms = groupBy(payoutMethods, 'type');
+    const payeeIsSelfHosted = payee.id == payee.host?.id;
     const payeeIsCollectiveFamilyType =
-      this.props.payee &&
-      AccountTypesWithHost.includes(this.props.payee.type) &&
+      payee &&
+      AccountTypesWithHost.includes(payee.type) &&
       this.props.collective.host?.supportedPayoutMethods?.includes(PayoutMethodType.ACCOUNT_BALANCE);
 
     // If the Account is of the "Collective" family, account balance should be the only option
-    const pmTypes = payeeIsCollectiveFamilyType
-      ? [PayoutMethodType.ACCOUNT_BALANCE]
-      : Object.values(PayoutMethodType).filter(type => {
-          // Account Balance only on Same Host
-          if (
-            type === PayoutMethodType.ACCOUNT_BALANCE &&
-            this.props.collective.host?.supportedPayoutMethods?.includes(PayoutMethodType.ACCOUNT_BALANCE) &&
-            this.props.payee?.host?.id != this.props.collective.host?.id
-          ) {
-            return false;
-          } else {
-            return this.props.collective.host?.supportedPayoutMethods?.includes(type);
-          }
-        });
+    const pmTypes =
+      payeeIsCollectiveFamilyType && !payeeIsSelfHosted
+        ? [PayoutMethodType.ACCOUNT_BALANCE]
+        : Object.values(PayoutMethodType).filter(type => {
+            // Account Balance only on Same Host
+            if (
+              type === PayoutMethodType.ACCOUNT_BALANCE &&
+              this.props.collective.host?.supportedPayoutMethods?.includes(PayoutMethodType.ACCOUNT_BALANCE) &&
+              payee?.host?.id != this.props.collective.host?.id
+            ) {
+              return false;
+            } else {
+              return this.props.collective.host?.supportedPayoutMethods?.includes(type);
+            }
+          });
 
     return pmTypes.map(pmType => ({
       label: i18nPayoutMethodType(this.props.intl, pmType),
@@ -242,7 +245,7 @@ class PayoutMethodSelect extends React.Component {
         <StyledSelect
           data-cy="payout-method-select"
           {...props}
-          options={this.getOptions(payoutMethods)}
+          options={this.getOptions(payoutMethods, props.payee)}
           defaultValue={defaultPayoutMethod ? this.getOptionFromPayoutMethod(defaultPayoutMethod) : undefined}
           value={typeof value === 'undefined' ? undefined : value}
           formatOptionLabel={this.formatOptionLabel}

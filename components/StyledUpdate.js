@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { gql } from '@apollo/client';
 import { graphql } from '@apollo/client/react/hoc';
 import { Lock } from '@styled-icons/fa-solid';
 import { get } from 'lodash';
@@ -8,6 +7,7 @@ import { defineMessages, FormattedMessage, injectIntl } from 'react-intl';
 import styled from 'styled-components';
 import { borders } from 'styled-system';
 
+import { API_V2_CONTEXT, gqlV2 } from '../lib/graphql/helpers';
 import { compose, formatDate } from '../lib/utils';
 import { Router } from '../server/pages';
 
@@ -17,21 +17,25 @@ import EditUpdateForm from './EditUpdateForm';
 import { Box, Flex } from './Grid';
 import Link from './Link';
 import LinkCollective from './LinkCollective';
+import LoadingPlaceholder from './LoadingPlaceholder';
 import MessageBox from './MessageBox';
 import PublishUpdateBtnWithData from './PublishUpdateBtnWithData';
+import StyledButton from './StyledButton';
 import StyledHr from './StyledHr';
 import StyledTag from './StyledTag';
 import StyledTooltip from './StyledTooltip';
-import { H3 } from './Text';
-import UpdateTextWithData from './UpdateTextWithData';
+import { H5 } from './Text';
 
 const UpdateWrapper = styled(Flex)`
   max-width: 100%;
   min-height: 100px;
-  border: 1px solid #e6e8eb;
   padding: 20px;
 
   ${borders}
+
+  img {
+    max-width: 100%;
+  }
 
   @media (max-width: 600px) {
     max-width: 100%;
@@ -59,11 +63,6 @@ const PrivateUpdateMesgBox = styled(MessageBox)`
   align-items: center;
 `;
 
-const ViewUpdatesLink = styled(Link)`
-  margin-top: 20px;
-  color: #71757a;
-`;
-
 class StyledUpdate extends Component {
   static propTypes = {
     collective: PropTypes.object.isRequired,
@@ -72,6 +71,7 @@ class StyledUpdate extends Component {
     editable: PropTypes.bool,
     includeHostedCollectives: PropTypes.bool,
     LoggedInUser: PropTypes.object,
+    isReloadingData: PropTypes.object,
     editUpdate: PropTypes.func.isRequired,
     deleteUpdate: PropTypes.func.isRequired,
     intl: PropTypes.object.isRequired,
@@ -130,6 +130,7 @@ class StyledUpdate extends Component {
   renderUpdateMeta(update, editable) {
     const { intl } = this.props;
     const { mode } = this.state;
+    const fromAccount = update.fromCollective || update.fromAccount;
 
     return (
       <Container display="flex" alignItems="Baseline" color="#969BA3" data-cy="meta" flexWrap="wrap">
@@ -157,7 +158,7 @@ class StyledUpdate extends Component {
                 }),
                 author: (
                   <Box as="span" mr={2} fontSize="12px">
-                    <LinkCollective collective={update.fromCollective} />
+                    <LinkCollective collective={fromAccount} />
                   </Box>
                 ),
               }}
@@ -172,7 +173,7 @@ class StyledUpdate extends Component {
                 date: formatDate(update.createdAt),
                 author: (
                   <Box as="span" mr={2} fontSize="12px">
-                    <LinkCollective collective={update.fromCollective} />
+                    <LinkCollective collective={fromAccount} />
                   </Box>
                 ),
               }}
@@ -206,23 +207,16 @@ class StyledUpdate extends Component {
     if (mode === 'summary') {
       return (
         <Link route={`/${collective.slug}/updates/${update.slug}`}>
-          <H3 data-cy="updateTitle" color="#090A0A" lineHeight="22px">
-            {update.title}
-          </H3>
+          <H5 data-cy="updateTitle">{update.title}</H5>
         </Link>
       );
     } else {
-      return (
-        <H3 data-cy="updateTitle" color="#090A0A" lineHeight="22px">
-          {update.title}
-        </H3>
-      );
+      return <H5 data-cy="updateTitle">{update.title}</H5>;
     }
   }
 
   renderSummary(update) {
-    const { collective } = this.props;
-
+    const { collective, isReloadingData } = this.props;
     return (
       <React.Fragment>
         {update.userCanSeeUpdate && (
@@ -235,7 +229,7 @@ class StyledUpdate extends Component {
             dangerouslySetInnerHTML={{ __html: update.summary }}
           />
         )}
-        {!update.userCanSeeUpdate && (
+        {!update.userCanSeeUpdate && !isReloadingData && (
           <PrivateUpdateMesgBox type="info" data-cy="mesgBox">
             <FormattedMessage
               id="update.private.cannot_view_message"
@@ -249,15 +243,15 @@ class StyledUpdate extends Component {
   }
 
   renderFullContent() {
-    const { update, collective, LoggedInUser } = this.props;
+    const { update, collective, LoggedInUser, isReloadingData } = this.props;
     const canPublishUpdate = LoggedInUser && LoggedInUser.canEditCollective(collective) && !update.publishedAt;
 
     return (
       <Container css={{ wordBreak: 'break-word' }} pl={[0, 60]}>
         <StyledHr mt={3} mb={4} borderColor="black.100" />
-        {update.html && <div dangerouslySetInnerHTML={{ __html: update.html }} />}
-        {!update.html && <UpdateTextWithData id={update.id} />}
-        {!update.userCanSeeUpdate && (
+        {update.html ? (
+          <div dangerouslySetInnerHTML={{ __html: update.html }} />
+        ) : !update.userCanSeeUpdate && !isReloadingData ? (
           <PrivateUpdateMesgBox type="info" data-cy="mesgBox">
             <FormattedMessage
               id="update.private.cannot_view_message"
@@ -265,7 +259,9 @@ class StyledUpdate extends Component {
               values={{ collective: collective.name }}
             />
           </PrivateUpdateMesgBox>
-        )}
+        ) : isReloadingData ? (
+          <LoadingPlaceholder height={300} />
+        ) : null}
         {canPublishUpdate && <PublishUpdateBtnWithData id={update.id} />}
       </Container>
     );
@@ -275,7 +271,7 @@ class StyledUpdate extends Component {
     const { collective, update } = this.props;
 
     return (
-      <Container display="flex" flexDirection="column" flex="1 1" maxWidth="55em" flexWrap="wrap">
+      <Container display="flex" flexDirection="column" flex="1 1" maxWidth="1200px" flexWrap="wrap">
         {this.renderUpdateMeta(update, true)}
         <EditUpdateForm collective={collective} update={update} onSubmit={this.save} />
       </Container>
@@ -287,6 +283,7 @@ class StyledUpdate extends Component {
     const { mode } = this.state;
     const canEditUpdate = LoggedInUser && LoggedInUser.canEditUpdate(update);
     const editable = !compact && props.editable && canEditUpdate;
+    const fromAccount = update.fromCollective || update.fromAccount;
 
     return (
       <React.Fragment>
@@ -295,8 +292,8 @@ class StyledUpdate extends Component {
             <Container width="100%">
               <Flex mb={2}>
                 <Container mr={20}>
-                  <LinkCollective collective={update.fromCollective}>
-                    <Avatar collective={update.fromCollective} radius={40} />
+                  <LinkCollective collective={fromAccount}>
+                    <Avatar collective={fromAccount} radius={40} />
                   </LinkCollective>
                 </Container>
                 <Box>
@@ -312,19 +309,19 @@ class StyledUpdate extends Component {
           {mode === 'edit' && this.renderEditUpdateForm()}
         </UpdateWrapper>
         {update.publishedAt && mode === 'details' && (
-          <Container my={4}>
-            <ViewUpdatesLink route={`/${collective.slug}/updates`}>
-              {intl.formatMessage(this.messages['viewLatestUpdates'])}
-            </ViewUpdatesLink>
-          </Container>
+          <Flex my={4} justifyContent={['center', 'flex-start']}>
+            <Link route={`/${collective.slug}/updates`}>
+              <StyledButton ml={[0, 5]}>{intl.formatMessage(this.messages['viewLatestUpdates'])}</StyledButton>
+            </Link>
+          </Flex>
         )}
       </React.Fragment>
     );
   }
 }
 
-const editUpdateMutation = gql`
-  mutation EditUpdate($update: UpdateAttributesInputType!) {
+const editUpdateMutation = gqlV2/* GraphQL */ `
+  mutation EditUpdate($update: UpdateUpdateInput!) {
     editUpdate(update: $update) {
       id
       updatedAt
@@ -336,8 +333,8 @@ const editUpdateMutation = gql`
   }
 `;
 
-const deleteUpdateMutation = gql`
-  mutation DeleteUpdate($id: Int!) {
+const deleteUpdateMutation = gqlV2/* GraphQL */ `
+  mutation DeleteUpdate($id: String!) {
     deleteUpdate(id: $id) {
       id
     }
@@ -346,10 +343,16 @@ const deleteUpdateMutation = gql`
 
 const addEditUpdateMutation = graphql(editUpdateMutation, {
   name: 'editUpdate',
+  options: {
+    context: API_V2_CONTEXT,
+  },
 });
 
 const addDeleteUpdateMutation = graphql(deleteUpdateMutation, {
   name: 'deleteUpdate',
+  options: {
+    context: API_V2_CONTEXT,
+  },
 });
 
 const addGraphql = compose(addEditUpdateMutation, addDeleteUpdateMutation);

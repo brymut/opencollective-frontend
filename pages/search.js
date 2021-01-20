@@ -5,7 +5,6 @@ import { graphql } from '@apollo/client/react/hoc';
 import { Search } from '@styled-icons/octicons/Search';
 import { isNil } from 'lodash';
 import { withRouter } from 'next/router';
-import { ControlLabel, FormControl, FormGroup } from 'react-bootstrap';
 import { defineMessages, FormattedMessage, injectIntl } from 'react-intl';
 import styled from 'styled-components';
 
@@ -22,10 +21,11 @@ import LoadingGrid from '../components/LoadingGrid';
 import Page from '../components/Page';
 import Pagination from '../components/Pagination';
 import StyledFilters from '../components/StyledFilters';
+import StyledInput from '../components/StyledInput';
 import StyledLink from '../components/StyledLink';
-import { P } from '../components/Text';
+import { H1, P } from '../components/Text';
 
-const SearchInput = styled(FormControl)`
+const SearchInput = styled(StyledInput)`
   &&& {
     border: none;
     border-bottom: 2px solid ${colors.blue};
@@ -33,7 +33,14 @@ const SearchInput = styled(FormControl)`
     box-shadow: none;
     display: block;
     height: 3.4rem;
+    width: 100%;
     padding: 0;
+    font-size: 18px;
+  }
+
+  &::placeholder {
+    color: #999;
+    opacity: 1;
   }
 `;
 
@@ -82,7 +89,7 @@ class SearchPage extends React.Component {
   static getInitialProps({ query }) {
     return {
       term: query.q || '',
-      types: query.types,
+      types: query.types ? decodeURIComponent(query.types).split(',') : DEFAULT_SEARCH_TYPES,
       isHost: isNil(query.isHost) ? undefined : parseToBoolean(query.isHost),
       limit: Number(query.limit) || 20,
       offset: Number(query.offset) || 0,
@@ -111,7 +118,7 @@ class SearchPage extends React.Component {
     const { router } = this.props;
     const { q } = form;
 
-    router.push({ pathname: router.pathname, query: { q: q.value } });
+    router.push({ pathname: router.pathname, query: { q: q.value, types: router.query.types } });
   };
 
   onClick = filter => {
@@ -122,7 +129,7 @@ class SearchPage extends React.Component {
     } else if (filter !== 'ALL') {
       Router.pushRoute('search', { q: term, types: filter });
     } else {
-      Router.pushRoute('search', { q: term, types: DEFAULT_SEARCH_TYPES });
+      Router.pushRoute('search', { q: term });
     }
   };
 
@@ -132,11 +139,8 @@ class SearchPage extends React.Component {
   };
 
   render() {
-    const {
-      data: { error, loading, search },
-      term = '',
-      intl,
-    } = this.props;
+    const { data, term = '', intl } = this.props;
+    const { error, loading, search } = data || {};
 
     if (error) {
       return <ErrorPage data={this.props.data} />;
@@ -148,35 +152,35 @@ class SearchPage extends React.Component {
 
     return (
       <Page title="Search" showSearch={false}>
-        <Container mx="auto" px={3} py={4} width={[1, 0.85]} maxWidth={1200}>
+        <Container mx="auto" px={3} py={[4, 5]} width={[1, 0.85]} maxWidth={1200}>
           <Box width={1}>
             <form method="GET" onSubmit={this.refetch}>
-              <FormGroup controlId="search" bsSize="large">
-                <ControlLabel className="h1">
-                  <FormattedMessage id="search.OpenCollective" defaultMessage="Search Open Collective..." />
-                </ControlLabel>
-                <Flex alignItems="flex-end" my={3}>
-                  <SearchInput type="search" name="q" placeholder="open source" defaultValue={term} />
-                  <SearchButton type="submit">
-                    <Search size="1em" />
-                  </SearchButton>
-                </Flex>
-              </FormGroup>
+              <H1 fontSize="36px" fontWeight="500">
+                <FormattedMessage id="search.OpenCollective" defaultMessage="Search Open Collective..." />
+              </H1>
+              <Flex alignItems="flex-end" my={3}>
+                <SearchInput type="search" name="q" placeholder="open source" defaultValue={term} />
+                <SearchButton type="submit">
+                  <Search size="1em" />
+                </SearchButton>
+              </Flex>
             </form>
           </Box>
-          <Box mt={4} mb={4} mx="auto">
-            <StyledFilters
-              filters={filters}
-              getLabel={key => intl.formatMessage(I18nFilters[key], { count: 10 })}
-              selected={this.state.filter}
-              justifyContent="left"
-              minButtonWidth={150}
-              onChange={filter => {
-                this.setState({ filter: filter });
-                this.onClick(filter);
-              }}
-            />
-          </Box>
+          {term && (
+            <Box mt={4} mb={4} mx="auto">
+              <StyledFilters
+                filters={filters}
+                getLabel={key => intl.formatMessage(I18nFilters[key], { count: 10 })}
+                selected={this.state.filter}
+                justifyContent="left"
+                minButtonWidth={150}
+                onChange={filter => {
+                  this.setState({ filter: filter });
+                  this.onClick(filter);
+                }}
+              />
+            </Box>
+          )}
           <Flex justifyContent={['center', 'center', 'flex-start']} flexWrap="wrap">
             {loading && !collectives && (
               <Flex py={3} width={1} justifyContent="center">
@@ -195,11 +199,7 @@ class SearchPage extends React.Component {
               <Flex py={3} width={1} justifyContent="center" flexDirection="column" alignItems="center">
                 <P my={4}>
                   <em>
-                    <FormattedMessage
-                      id="search.noResult"
-                      defaultMessage='No collectives found matching your query: "{query}"'
-                      values={{ query: term }}
-                    />
+                    <FormattedMessage id="search.noResult" defaultMessage="Your search did not match any result" />
                   </em>
                 </P>
                 {
@@ -304,6 +304,6 @@ export const searchPageQuery = gql`
   }
 `;
 
-export const addSearchPageData = graphql(searchPageQuery);
+export const addSearchPageData = graphql(searchPageQuery, { skip: props => !props.term });
 
 export default injectIntl(withRouter(addSearchPageData(SearchPage)));

@@ -1,17 +1,17 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { gql } from '@apollo/client';
 import { graphql } from '@apollo/client/react/hoc';
 import { get } from 'lodash';
 import { FormattedMessage } from 'react-intl';
 import styled from 'styled-components';
 
+import { API_V2_CONTEXT, gqlV2 } from '../lib/graphql/helpers';
 import { compose } from '../lib/utils';
 
 import Container from './Container';
 import StyledButton from './StyledButton';
 import StyledSelect from './StyledSelect';
-import { H5, Span } from './Text';
+import { Label, Span } from './Text';
 
 const Notice = styled.div`
   color: #525866;
@@ -28,7 +28,7 @@ const StyledPublishUpdateBtn = styled.div`
 
 class PublishUpdateBtn extends React.Component {
   static propTypes = {
-    id: PropTypes.number.isRequired,
+    id: PropTypes.string.isRequired,
     publishUpdate: PropTypes.func,
     data: PropTypes.object,
   };
@@ -52,11 +52,11 @@ class PublishUpdateBtn extends React.Component {
   }
 
   render() {
-    const update = this.props.data.Update;
+    const update = this.props.data.update;
     const isLoading = this.props.data.loading;
-    const isHost = get(update, 'collective.isHost');
-    const backers = get(update, 'collective.stats.backers.all');
-    const hostedCollectives = get(update, 'collective.stats.collectives.hosted');
+    const isHost = get(update, 'account.isHost');
+    const backers = get(update, 'account.totalFinancialContributors');
+    const hostedCollectives = get(update, 'account.totalHostedCollectives');
 
     const options = [
       {
@@ -118,10 +118,11 @@ class PublishUpdateBtn extends React.Component {
         <Container mt="4" mb="5" display="flex" flexDirection="column" alignItems="left" width="100%" maxWidth={400}>
           {isHost && (
             <Span>
-              <H5>
+              <Label htmlFor="whoToNotify" mb={2}>
                 <FormattedMessage id="update.publish.notify.selection" defaultMessage="Select who should be notified" />
-              </H5>
+              </Label>
               <StyledSelect
+                inputId="whoToNotify"
                 options={options}
                 defaultValue={options[0]}
                 onChange={selected => this.handleNotificationChange(selected)}
@@ -148,8 +149,8 @@ class PublishUpdateBtn extends React.Component {
   }
 }
 
-const publishUpdateMutation = gql`
-  mutation PublishUpdate($id: Int!, $notificationAudience: UpdateAudienceTypeEnum!) {
+const publishUpdateMutation = gqlV2/* GraphQL */ `
+  mutation PublishUpdate($id: String!, $notificationAudience: UpdateAudienceType!) {
     publishUpdate(id: $id, notificationAudience: $notificationAudience) {
       id
       publishedAt
@@ -158,31 +159,35 @@ const publishUpdateMutation = gql`
   }
 `;
 
-const updateQuery = gql`
-  query Update($id: Int!) {
-    Update(id: $id) {
+const updateQuery = gqlV2/* GraphQL */ `
+  query Update($id: String!) {
+    update(id: $id) {
       id
-      collective {
+      account {
         id
         isHost
-        stats {
-          id
-          backers {
-            all
-          }
-          collectives {
-            hosted
-          }
+        ... on AccountWithContributions {
+          totalFinancialContributors
+        }
+        ... on Host {
+          totalHostedCollectives
         }
       }
     }
   }
 `;
 
-const addUpdateData = graphql(updateQuery);
+const addUpdateData = graphql(updateQuery, {
+  options: {
+    context: API_V2_CONTEXT,
+  },
+});
 
 const addPublishUpdateMutation = graphql(publishUpdateMutation, {
   name: 'publishUpdate',
+  options: {
+    context: API_V2_CONTEXT,
+  },
 });
 
 const addGraphql = compose(addPublishUpdateMutation, addUpdateData);

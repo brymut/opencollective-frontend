@@ -25,8 +25,9 @@ import {
 } from '../../recurring-contributions/UpdatePaymentMethodPopUp';
 import { withStripeLoader } from '../../StripeProvider';
 import StyledButton from '../../StyledButton';
-import { H3, Span } from '../../Text';
+import { P, Span } from '../../Text';
 import EditPaymentMethod from '../EditPaymentMethod';
+import SettingsTitle from '../SettingsTitle';
 
 class EditPaymentMethods extends React.Component {
   static propTypes = {
@@ -219,6 +220,9 @@ class EditPaymentMethods extends React.Component {
       <Loading />
     ) : (
       <Flex className="EditPaymentMethods" flexDirection="column">
+        <SettingsTitle>
+          <FormattedMessage id="editCollective.menu.paymentMethods" defaultMessage="Payment Methods" />
+        </SettingsTitle>
         {error && (
           <MessageBox type="error" withIcon mb={4}>
             {this.renderError(error)}
@@ -226,9 +230,6 @@ class EditPaymentMethods extends React.Component {
         )}
         {
           <Flex className="paymentMethods" flexDirection="column" my={2}>
-            <H3>
-              <FormattedMessage id="paymentMethods.send.title" defaultMessage="Sending money" />
-            </H3>
             {paymentMethods.map(pm => (
               <Container
                 className="paymentMethod"
@@ -284,9 +285,9 @@ class EditPaymentMethods extends React.Component {
             borderRadius={4}
             border="1px solid #dedede"
           >
-            <H3 mr={4}>
+            <P fontSize="14px" fontWeight="bold" mr={4}>
               <FormattedMessage id="paymentMethod.add" defaultMessage="New Credit Card" />
-            </H3>
+            </P>
             <Box mr={2} css={{ flexGrow: 1 }}>
               <NewCreditCardForm
                 hasSaveCheckBox={false}
@@ -337,7 +338,6 @@ const paymentMethodsQuery = gql`
         addedFundsLimit
         bankTransfers
         bankTransfersLimit
-        hostDashboard
         hostedCollectives
         hostedCollectivesLimit
         manualPayments
