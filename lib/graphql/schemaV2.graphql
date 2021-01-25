@@ -4321,6 +4321,7 @@ type HostApplication {
   createdAt: DateTime!
   status: HostApplicationStatus
   message: String
+  customData: JSON
 }
 
 """
@@ -4403,6 +4404,11 @@ type HostMetrics {
   Amount in host fee shared with the platform
   """
   hostFeeShare: Amount
+
+  """
+  Amount in host fee shared  requiring settlement
+  """
+  pendingHostFeeShare: Amount
 
   """
   Total amount managed on behalf of hosted collectives
@@ -4694,6 +4700,16 @@ type Individual implements Account {
   isGuest: Boolean!
   isFollowingConversation(id: String!): Boolean!
   hasTwoFactorAuth: Boolean
+
+  """
+  If the individual is a host account, this will return the matching Host object
+  """
+  host: Host
+}
+
+input IndividualCreateInput {
+  name: String!
+  email: String!
 }
 
 scalar IsoDateString
@@ -4895,6 +4911,11 @@ type Mutation {
     host: AccountReferenceInput
 
     """
+    User information to create along with the collective
+    """
+    user: IndividualCreateInput
+
+    """
     Wether to trigger the automated approval for Open Source collectives with GitHub.
     """
     automateApprovalWithGithub: Boolean = false
@@ -4903,6 +4924,11 @@ type Mutation {
     A message to attach for the host to review the application
     """
     message: String
+
+    """
+    Further information about collective applying to host
+    """
+    applicationData: JSON
   ): Collective
   createFund(
     """
@@ -5949,7 +5975,7 @@ type Organization implements Account & AccountWithContributions {
   email: String
 
   """
-  If the organization if a host account, this will return the matchig Host object
+  If the organization if a host account, this will return the matching Host object
   """
   host: Host
 }
